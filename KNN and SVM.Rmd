@@ -1,0 +1,168 @@
+---
+title: "Project"
+author: "Rini Joshi"
+date: "5/11/2017"
+output: word_document
+---
+
+```{r knn}
+
+#load libraries
+library(caTools)
+library(dummies)
+library(FNN)
+library(e1071)
+library(Metrics)
+
+#load input dataset
+trialdata1 = read.csv('dataset_Facebook.csv')
+
+#set seed
+set.seed(12345)
+
+#convert categorical vairables into factors
+trialdata1$Category <- as.factor(trialdata1$Category)
+trialdata1$Post.Month <- as.factor(trialdata1$Post.Month)
+trialdata1$Post.Weekday <- as.factor(trialdata1$Post.Weekday)
+trialdata1$Post.Hour <- as.factor(trialdata1$Post.Hour)
+trialdata1$Paid <- as.factor(trialdata1$Paid)
+
+
+#convert categorical variables into dummy
+dummy_trialdata1 <- dummy.data.frame(trialdata1, sep = ".", names = c("Type","Category","Post.Month","Post.Weekday","Post.Hour","Paid"))
+
+# Dataset normalization
+normalize <- function(x) {
+    return ((as.numeric(x) - min(as.numeric(x))) / (max(as.numeric(x)) - min(as.numeric(x))))
+}
+
+#normalizing only the predictors
+norm_pred_df <- as.data.frame(lapply(dummy_trialdata1[1:51], normalize))
+
+#adding all the dependant variables to the normalized data
+norm_trialdata1_df <- cbind(norm_pred_df,dummy_trialdata1[c(52:63)])
+
+#split the data
+train <- sample(nrow(norm_trialdata1_df),0.7*nrow(norm_trialdata1_df))
+trialdata1_train<-norm_trialdata1_df[train,]
+trialdata1_test<-norm_trialdata1_df[-train,]
+
+error_matrix = list(c("K=1", "K=2", "K=3","K=4","K=5","K=6"),c("F1", "F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12")) 
+
+
+error_matrix = matrix(0,20,12)
+
+#creating an error matrix for RMSE. with features as columns and rows represent the nearest neighbours from k=3 to k=20
+for (kval in 3:20){
+  for (fvar in 52:63) {
+    knn_model <- knn.reg(trialdata1_train[c(1:51)], test = trialdata1_test[c(1:51)], trialdata1_train[c(fvar)], k = kval )
+    trialdata1_test[c(fvar)]
+    temp <-trialdata1_test[c(fvar)] - knn_model$pred
+    RMSE <-sqrt(mean(temp^2))
+    i <- fvar-51
+    error_matrix[kval-2,i] <- signif(RMSE,7)
+  }
+}
+
+error_matrix
+cost <- seq(100,1000,100)
+
+svm_error_matrix = matrix(0,10,12)
+j=1
+for (cst in cost){
+    svm_model <-  svm(trialdata1_train$Lifetime.Post.Total.Reach~., data=trialdata1_train[c(1:51)], cost = cst, scale = FALSE)
+    p <- predict(svm_model, trialdata1_test[c(1:51)])
+    RSME <- rmse(trialdata1_test$Lifetime.Post.Total.Reach,p)
+    svm_error_matrix[j,1] <- signif(RMSE,7)
+  j=j+1
+}
+j=1
+for (cst in cost){
+    svm_model <-  svm(trialdata1_train$Lifetime.Post.Total.Impressions~., data=trialdata1_train[c(1:51)], cost = cst, scale = FALSE)
+    p <- predict(svm_model, trialdata1_test[c(1:51)])
+    RSME <- rmse(trialdata1_test$Lifetime.Post.Total.Impressions,p)
+    svm_error_matrix[j,2] <- signif(RMSE,7)
+  j=j+1
+}
+j=1
+for (cst in cost){
+    svm_model <-  svm(trialdata1_train$Lifetime.Engaged.Users~., data=trialdata1_train[c(1:51)], cost = cst, scale = FALSE)
+    p <- predict(svm_model, trialdata1_test[c(1:51)])
+    RSME <- rmse(trialdata1_test$Lifetime.Engaged.Users,p)
+    svm_error_matrix[j,3] <- signif(RMSE,7)
+  j=j+1
+}
+j=1
+for (cst in cost){
+    svm_model <-  svm(trialdata1_train$Lifetime.Post.Consumptions~., data=trialdata1_train[c(1:51)], cost = cst, scale = FALSE)
+    p <- predict(svm_model, trialdata1_test[c(1:51)])
+    RSME <- rmse(trialdata1_test$Lifetime.Post.Consumptions,p)
+    svm_error_matrix[j,5] <- signif(RMSE,7)
+  j=j+1
+}
+j=1
+for (cst in cost){
+    svm_model <-  svm(trialdata1_train$Lifetime.Post.Impressions.by.people.who.have.liked.your.Page~., data=trialdata1_train[c(1:51)], cost = cst, scale = FALSE)
+    p <- predict(svm_model, trialdata1_test[c(1:51)])
+    RSME <- rmse(trialdata1_test$Lifetime.Post.Impressions.by.people.who.have.liked.your.Page,p)
+    svm_error_matrix[j,6] <- signif(RMSE,7)
+  j=j+1
+}
+
+j=1
+for (cst in cost){
+    svm_model <-  svm(trialdata1_train$Lifetime.Post.reach.by.people.who.like.your.Page~., data=trialdata1_train[c(1:51)], cost = cst, scale = FALSE)
+    p <- predict(svm_model, trialdata1_test[c(1:51)])
+    RSME <- rmse(trialdata1_test$Lifetime.Post.reach.by.people.who.like.your.Page,p)
+    svm_error_matrix[j,7] <- signif(RMSE,7)
+  j=j+1
+}
+
+j=1
+for (cst in cost){
+    svm_model <-  svm(trialdata1_train$Lifetime.People.who.have.liked.your.Page.and.engaged.with.your.post~., data=trialdata1_train[c(1:51)], cost = cst, scale = FALSE)
+    p <- predict(svm_model, trialdata1_test[c(1:51)])
+    RSME <- rmse(trialdata1_test$Lifetime.People.who.have.liked.your.Page.and.engaged.with.your.post,p)
+    svm_error_matrix[j,8] <- signif(RMSE,7)
+  j=j+1
+}
+j=1
+for (cst in cost){
+    svm_model <-  svm(trialdata1_train$comment~., data=trialdata1_train[c(1:51)], cost = cst, scale = FALSE)
+    p <- predict(svm_model, trialdata1_test[c(1:51)])
+    RSME <- rmse(trialdata1_test$comment,p)
+    svm_error_matrix[j,9] <- signif(RMSE,7)
+  j=j+1
+}
+j=1
+for (cst in cost){
+    svm_model <-  svm(trialdata1_train$like~., data=trialdata1_train[c(1:51)], cost = cst, scale = FALSE)
+    p <- predict(svm_model, trialdata1_test[c(1:51)])
+    RSME <- rmse(trialdata1_test$like,p)
+    svm_error_matrix[j,10] <- signif(RMSE,7)
+  j=j+1
+}
+j=1
+for (cst in cost){
+    svm_model <-  svm(trialdata1_train$share~., data=trialdata1_train[c(1:51)], cost = cst, scale = FALSE)
+    p <- predict(svm_model, trialdata1_test[c(1:51)])
+    RSME <- rmse(trialdata1_test$share,p)
+    svm_error_matrix[j,11] <- signif(RMSE,7)
+  j=j+1
+}
+j=1
+for (cst in cost){
+    svm_model <-  svm(trialdata1_train$Total.Interactions~., data=trialdata1_train[c(1:51)], cost = cst, scale = FALSE)
+    p <- predict(svm_model, trialdata1_test[c(1:51)])
+    RSME <- rmse(trialdata1_test$Total.Interactions,p)
+    svm_error_matrix[j,12] <- signif(RMSE,7)
+  j=j+1
+}
+
+
+
+#error matrix for the svm mmodel with columns denoting the features and rows representing the cost variations from 100 to 1000 in steps of 100.     
+svm_error_matrix
+```
+
+
